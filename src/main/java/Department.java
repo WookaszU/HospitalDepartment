@@ -18,6 +18,13 @@ public class Department {
 
     public Department() {
         init();
+        startTask();
+    }
+
+
+    private void startTask(){
+        handleCommands();
+        close();
     }
 
 
@@ -37,8 +44,6 @@ public class Department {
 
             System.out.println("declared!");
 
-            eventLoop();
-            close();
 
 
         } catch (IOException e) {
@@ -60,21 +65,27 @@ public class Department {
         }
     }
 
-    private void eventLoop() throws IOException{
+
+    private void handleCommands() {
         while (true) {
 
-            // read msg
-            BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+            try {
+                // read msg
+                BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 
-            String message = br.readLine();
+                String message = br.readLine();
 
-            // break condition
-            if ("/exit".equals(message) || "/close".equals(message) ) {
-                break;
+                // break condition
+                if ("/exit".equals(message) || "/close".equals(message) ) {
+                    break;
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
 
         }
     }
+
 
     public static void main(String []args){
         new Department();

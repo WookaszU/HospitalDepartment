@@ -19,6 +19,13 @@ public class Doctor {
         this.EXCHANGE_NAME = EXCHANGE_NAME;
         generateId();
         init();
+        startTask();
+    }
+
+
+    private void startTask(){
+        handleCommands();
+        close();
     }
 
 
@@ -28,7 +35,7 @@ public class Doctor {
     }
 
 
-    void init(){
+    private void init(){
 
         try {
             // info
@@ -56,17 +63,13 @@ public class Doctor {
                 @Override
                 public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
                     String message = new String(body, "UTF-8");
-                    System.out.println("Received: " + message);
+                    System.out.println("Received: " + message + "  from: " + properties.getReplyTo());
                 }
             };
 
             // start listening
-            System.out.println("Waiting for messages...");
             channel.basicConsume(resultsQueue, true, consumer);
 
-            eventLoop();
-
-            close();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (TimeoutException e) {
@@ -77,33 +80,38 @@ public class Doctor {
     }
 
 
-    private void eventLoop() throws IOException{
+    private void handleCommands(){
         while (true) {
 
-            // read msg
-            BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+            try {
+                // read msg
+                BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 
-            System.out.println("Enter KEY (hip / knee / elbow): ");
-            String key = br.readLine();
+                System.out.println("Enter KEY (hip / knee / elbow): ");
+                String key = br.readLine();
 
-            System.out.println("Enter patient name: ");
-            String message = br.readLine();
+                System.out.println("Enter patient name: ");
+                String message = br.readLine();
 
-            // break condition
-            if ("/exit".equals(message) || "/close".equals(message) ) {
-                break;
+                // break condition
+                if ("/exit".equals(message) || "/close".equals(message) ) {
+                    break;
+                }
+
+                message = message + " " + key;
+
+                AMQP.BasicProperties properties = new AMQP
+                        .BasicProperties()
+                        .builder()
+                        .correlationId(id)
+                        .replyTo(id)
+                        .build();
+
+                // publish
+                channel.basicPublish(EXCHANGE_NAME, key, properties, message.getBytes("UTF-8"));
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-
-            AMQP.BasicProperties properties = new AMQP
-                    .BasicProperties()
-                    .builder()
-                    .correlationId(id)
-                    .replyTo(id)
-                    .build();
-
-            // publish
-            channel.basicPublish(EXCHANGE_NAME, key, properties, message.getBytes("UTF-8"));
-            System.out.println("Sent: " + message);
         }
     }
 

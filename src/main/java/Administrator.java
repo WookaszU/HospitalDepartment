@@ -3,8 +3,6 @@ import com.rabbitmq.client.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
@@ -16,14 +14,23 @@ public class Administrator {
     private String EXCHANGE_NAME = "mainExchange";
     private String myQueue;
 
+
     private void generateId(){
         String employeeType = "employee." + this.getClass().getName();
         id = employeeType + "." + UUID.randomUUID().toString();
     }
 
+
     public Administrator() {
         generateId();
         init();
+        startTask();
+    }
+
+
+    private void startTask(){
+        handleCommands();
+        close();
     }
 
 
@@ -46,21 +53,21 @@ public class Administrator {
             // queue & bind    queue  results   for doctor
             myQueue = channel.queueDeclare(id, true, false, true, null).getQueue();
             channel.queueBind(myQueue, EXCHANGE_NAME, "#");
-            System.out.println("created queue: " + myQueue);
+
 
             // consumer (message handling)
             Consumer consumer = new DefaultConsumer(channel) {
                 @Override
                 public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
                     String message = new String(body, "UTF-8");
-                    System.out.println("Log: " + message);
+                    System.out.println("-------LOG-------");
+                    System.out.println("Message: " + message);
+                    System.out.println("From: " + properties.getReplyTo());
                 }
             };
 
             channel.basicConsume(myQueue, true, consumer);
 
-            publish();
-            close();
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -70,43 +77,48 @@ public class Administrator {
     }
 
 
-    private void publish() throws IOException{
+    private void handleCommands(){
         while (true) {
 
-            // read msg
-            BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+            try {
+                // read msg
+                BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 
-            System.out.println("Enter message destination (all/tech/doc) : ");
-            String key = br.readLine();
+                System.out.println("Enter message destination (all/tech/doc) : ");
+                String key = br.readLine();
 
-            if(key.equals("all"))
-                key = "employee";
-            else if(key.equals("tech"))
-                key = "employee.Technician";
-            else if(key.equals("doc"))
-                key = "employee.Doctor";
+                if(key.equals("all"))
+                    key = "employee";
+                else if(key.equals("tech"))
+                    key = "employee.Technician";
+                else if(key.equals("doc"))
+                    key = "employee.Doctor";
 
 
-            System.out.println("Enter message: ");
-            String message = br.readLine();
+                System.out.println("Enter message: ");
+                String message = br.readLine();
 
-            // break condition
-            if ("/exit".equals(message) || "/close".equals(message) ) {
-                break;
+                // break condition
+                if ("/exit".equals(message) || "/close".equals(message) ) {
+                    break;
+                }
+
+                AMQP.BasicProperties properties = new AMQP
+                        .BasicProperties()
+                        .builder()
+                        .correlationId(id)
+                        .replyTo(id)
+                        .build();
+
+                // publish
+                channel.basicPublish(EXCHANGE_NAME, key, properties, message.getBytes("UTF-8"));
+                System.out.println("Sent: " + message);
+            } catch (IOException e) {
+                System.out.println("Unable to send message!");
             }
-
-            AMQP.BasicProperties properties = new AMQP
-                    .BasicProperties()
-                    .builder()
-                    .correlationId(id)
-                    .replyTo(id)
-                    .build();
-
-            // publish
-            channel.basicPublish(EXCHANGE_NAME, key, properties, message.getBytes("UTF-8"));
-            System.out.println("Sent: " + message);
         }
     }
+
 
     private void close(){
         try {
@@ -118,6 +130,7 @@ public class Administrator {
             e.printStackTrace();
         }
     }
+
 
     public static void main(String[] argv) throws Exception {
 

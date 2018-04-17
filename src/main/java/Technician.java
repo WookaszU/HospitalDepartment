@@ -16,14 +16,20 @@ public class Technician {
     private Channel channel;
     private Connection connection;
     private String EXCHANGE_NAME = "mainExchange";
+
     private List<String> specialisations = new ArrayList<String>();
 
 
-    public Technician(String EXCHANGE_NAME) {
-        this.EXCHANGE_NAME = EXCHANGE_NAME;
+    public Technician() {
         generateId();
         init();
+        startTask();
+    }
 
+
+    private void startTask(){
+        handleCommands();
+        close();
     }
 
 
@@ -31,6 +37,7 @@ public class Technician {
         String employeeType = "employee." + this.getClass().getName();
         id = employeeType + "." + UUID.randomUUID().toString();
     }
+
 
     private void askForSpecs() throws IOException{
         // read msg
@@ -54,7 +61,7 @@ public class Technician {
     }
 
 
-    void init(){
+    private void init(){
 
         try {
             // info
@@ -81,8 +88,9 @@ public class Technician {
             Consumer consumer = new DefaultConsumer(channel) {
                 @Override
                 public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
+
                     String message = new String(body, "UTF-8");
-                    System.out.println("Received: " + message);
+                    System.out.println("Received: " + message + "  from: " + properties.getReplyTo());
 
                     makeAnalysis();
 
@@ -90,31 +98,26 @@ public class Technician {
                             .BasicProperties()
                             .builder()
                             .correlationId(properties.getCorrelationId())
+                            .replyTo(id)
                             .build();
 
-                    message = "done";
+                    message = message + " done";
 
-                    if(properties.getReplyTo().contains("Doctor")) {
-
-                        System.out.println(properties.getReplyTo());
-
+                    if(properties.getReplyTo().contains("Doctor"))
                         channel.basicPublish(EXCHANGE_NAME, properties.getReplyTo(), replyProperties,
                                 message.getBytes("UTF-8"));
-                    }
+
 
                 }
             };
 
             // start listening
-            System.out.println("Waiting for messages...");
             channel.basicConsume(queueName, true, consumer);
 
             for(String specialisation: specialisations){
                 channel.basicConsume(specialisation, true, consumer);
             }
 
-            eventLoop();
-            close();
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -136,6 +139,7 @@ public class Technician {
 
     }
 
+
     private void close(){
         try {
             channel.close();
@@ -147,24 +151,28 @@ public class Technician {
         }
     }
 
-    private void eventLoop() throws IOException{
+    private void handleCommands() {
         while (true) {
 
-            // read msg
-            BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+            try {
+                // read msg
+                BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 
-            String message = br.readLine();
+                String message = br.readLine();
 
-            // break condition
-            if ("/exit".equals(message) || "/close".equals(message) ) {
-                break;
+                // break condition
+                if ("/exit".equals(message) || "/close".equals(message) ) {
+                    break;
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
 
         }
     }
 
     public static void main(String []args){
-        new Technician("mainExchange");
+        new Technician();
     }
 
 
