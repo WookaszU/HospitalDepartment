@@ -68,7 +68,6 @@ public class Administrator {
 
             channel.basicConsume(myQueue, true, consumer);
 
-
         } catch (IOException e) {
             e.printStackTrace();
         } catch (TimeoutException e) {

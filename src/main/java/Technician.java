@@ -56,6 +56,10 @@ public class Technician {
         specialisations.add(spec1);
         specialisations.add(spec2);
 
+        //jesli tutaj tworzymy, to gdy nie bylo technikow wczesniej to nic nie dojdzie jak jakis sie pojawi / department
+        channel.queueDeclare(spec1, true, false, false, null).getQueue();
+        channel.queueDeclare(spec2, true, false, false, null).getQueue();
+
         channel.queueBind(spec1, EXCHANGE_NAME, spec1 + ".#");
         channel.queueBind(spec2, EXCHANGE_NAME, spec2 + ".#");
     }
